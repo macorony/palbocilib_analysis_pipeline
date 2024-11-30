@@ -1,56 +1,70 @@
-import pandas as pd
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
 from scipy import stats
 from adjustText import adjust_text
 
+
+
+
 class CRISPRScreenAnalysis:
     def __init__(self, gene_summary_path, normalized_count_path):
+        
         """Initialize CRISPR screen analysis with data files."""
+        
+        # initialize attributes
         self.gene_summary = pd.read_csv(gene_summary_path, sep='\t')
         self.normalized_count = pd.read_csv(normalized_count_path, sep='\t', index_col=0)
         self.normalized_count = self.normalized_count.iloc[:, 1:]
-        self.process_data()
+        # self.process_data()
         
+        # initialize storge attributes
+        self.combined_data = None
+        self.pos_sig_genes = None
+        self.neg_sig_genes = None
+
+
+    # def verify_data(self):
+   
     def process_data(self):
-        """Process and organize CRISPR screen data."""
+        """Process and organize CRISRP screen gene summary data."""
+        
         # Split positive and negative data
-        self.positive = self.gene_summary[self.gene_summary['pos.lfc'] >= 0]
-        self.negative = self.gene_summary[self.gene_summary['pos.lfc'] < 0]
+        positive_init = self.gene_summary[self.gene_summary['pos|lfc'] >= 0]
+        negative_init = self.gene_summary[self.gene_summary['pos|lfc'] < 0]
         
         # Process positive data
-        cols = ['id', 'num', 'pos.score', 'pos.p.value', 'pos.fdr', 
-                'pos.rank', 'pos.goodsgrna', 'pos.lfc']
-        self.positive_data = self.positive[cols]
-        
+        pos_cols = ['id', 'num', 'pos|score', 'pos|p-value', 'pos|fdr', 
+                'pos|rank', 'pos|goodsgrna', 'pos|lfc']
+        positive = positive_init[pos_cols]
         # Process negative data
-        neg_cols = ['id', 'num', 'neg.score', 'neg.p.value', 'neg.fdr', 
-                   'neg.rank', 'neg.goodsgrna', 'neg.lfc']
-        self.negative_data = self.negative[neg_cols]
-        
+        neg_cols = ['id', 'num', 'neg|score', 'neg|p-value', 'neg|fdr', 
+                   'neg|rank', 'neg|goodsgrna', 'neg|lfc']
+        negative = negative_init[neg_cols]
         # Rename columns
         rename = ['gene_symbol', 'num', 'score', 'p_value', 'fdr', 
                  'rank', 'goodsgrna', 'lfc']
-        self.positive_data.columns = rename
-        self.negative_data.columns = rename
+        positive.columns = rename
+        negative.columns = rename
         
         # Combine and process data
-        self.combined_data = pd.concat([self.positive_data, self.negative_data])
+        self.combined_data = pd.concat([positive, negative])
         self.combined_data['logFDR'] = -np.log10(self.combined_data['fdr'])
         
         # Filter miRNA entries
-        self.repooled_data = self.combined_data[
+        self.combined_data = self.combined_data[
             ~self.combined_data['gene_symbol'].str.contains("hsa-", na=False)
         ]
-        
+        print(self.combined_data)
+
         # Identify significant genes
-        self.positive_genes = self.positive_data[
-            self.positive_data['fdr'] <= 0.05
+        self.pos_sig_genes = self.combined_data[
+            (self.combined_data['fdr'] <= 0.05) & (self.combined_data['lfc'] > 0)
         ]['gene_symbol']
-        self.negative_genes = self.negative_data[
-            self.negative_data['fdr'] <= 0.05
+        self.neg_sig_genes = self.combined_data[
+            (self.combined_data['fdr'] <= 0.05) & (self.combined_data['lfc'] < 0)
         ]['gene_symbol']
         
     def create_volcano_plot(self, top_n=10, figsize=(12, 8)):
