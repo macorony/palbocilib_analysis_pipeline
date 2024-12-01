@@ -155,21 +155,14 @@ class CRISPRScreenAnalysis:
         
     def get_significant_genes(self):
         """Return dictionary of significant genes and their statistics."""
-        sig_pos = self.repooled_data[
-            self.repooled_data['gene_symbol'].isin(self.positive_genes)
-        ].sort_values('fdr')
-        
-        sig_neg = self.repooled_data[
-            self.repooled_data['gene_symbol'].isin(self.negative_genes)
-        ].sort_values('fdr')
         
         return {
-            'positive': sig_pos,
-            'negative': sig_neg,
+            'positive': self.pos_sig_genes,
+            'negative': self.neg_sig_genes,
             'summary': {
-                'total_significant': len(sig_pos) + len(sig_neg),
-                'positive_hits': len(sig_pos),
-                'negative_hits': len(sig_neg)
+                'total_significant': len(self.pos_sig_genes) + len(self.neg_sig_genes),
+                'positive_hits': len(self.pos_sig_genes),
+                'negative_hits': len(self.neg_sig_genes)
             }
         }
 
