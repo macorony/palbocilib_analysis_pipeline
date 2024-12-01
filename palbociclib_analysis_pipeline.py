@@ -67,21 +67,22 @@ class CRISPRScreenAnalysis:
             (self.combined_data['fdr'] <= 0.05) & (self.combined_data['lfc'] < 0)
         ]['gene_symbol']
         
+    
     def create_volcano_plot(self, top_n=10, figsize=(12, 8)):
         """Create enhanced volcano plot with labeled top genes."""
         plt.figure(figsize=figsize)
         
         # Plot all points
-        sns.scatterplot(data=self.repooled_data, x='lfc', y='logFDR', 
+        sns.scatterplot(data=self.combined_data, x='lfc', y='logFDR', 
                        alpha=0.2, label='Non-significant')
         
         # Plot significant points
-        sns.scatterplot(data=self.repooled_data[
-            self.repooled_data['gene_symbol'].isin(self.positive_genes)
+        sns.scatterplot(data=self.combined_data[
+            self.combined_data['gene_symbol'].isin(self.pos_sig_genes)
         ], x='lfc', y='logFDR', color='red', label='Positive significant')
         
-        sns.scatterplot(data=self.repooled_data[
-            self.repooled_data['gene_symbol'].isin(self.negative_genes)
+        sns.scatterplot(data=self.combined_data[
+            self.combined_data['gene_symbol'].isin(self.neg_sig_genes)
         ], x='lfc', y='logFDR', color='blue', label='Negative significant')
         
         # Add significance threshold line
@@ -89,14 +90,13 @@ class CRISPRScreenAnalysis:
                     linewidth=1, label='Significance threshold')
         
         # Label top genes
-        top_genes = self.repooled_data.nlargest(top_n, 'logFDR')
+        top_genes = self.combined_data.nlargest(top_n, 'logFDR')
         texts = []
         for _, gene in top_genes.iterrows():
             texts.append(plt.text(gene['lfc'], gene['logFDR'], 
-                                gene['gene_symbol']))
+                                  gene['gene_symbol']))
         
-        adjust_text(texts, arrowprops=dict(arrowstyle='->', color='gray', 
-                                          lw=0.5))
+        adjust_text(texts, arrowprops=dict(arrowstyle='->', color='gray', lw=0.5))
         
         plt.title('CRISPR Screen Volcano Plot', pad=20)
         plt.xlabel('Log Fold Change (LFC)')
