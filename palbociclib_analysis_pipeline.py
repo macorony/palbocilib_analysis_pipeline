@@ -25,6 +25,7 @@ class CRISPRScreenAnalysis:
         self.pos_sig_genes = None
         self.neg_sig_genes = None
 
+        self.process_data()
 
     # def verify_data(self):
    
@@ -169,18 +170,19 @@ class CRISPRScreenAnalysis:
 # Usage example
 if __name__ == "__main__":
     # Initialize analysis
-    analysis = CRISPRScreenAnalysis(
-        './control_normalized_working/palbo_vs_dmso_control_normalized.gene_summary.txt',
-        './control_normalized_working/palbo_vs_dmso_control_normalized.normalized.txt'
-    )
+    gene_summary_fpath = "./input_data/CRISPR_screen/palbo_vs_dmso_control_normalized.gene_summary.txt"
+    normalized_counts_fpath = "./input_data/CRISPR_screen/palbo_vs_dmso_control_normalized.normalized.txt"
+    palbo_analysis = CRISPRScreenAnalysis(
+        gene_summary_fpath, normalized_counts_fpath
+        )
     
     # Create visualizations
-    volcano_plot = analysis.create_volcano_plot()
-    correlation_heatmap = analysis.create_correlation_heatmap()
-    pca_plots = analysis.perform_pca()
+    volcano_plot = palbo_analysis.create_volcano_plot()
+    correlation_heatmap = palbo_analysis.create_correlation_heatmap()
+    pca_plots = palbo_analysis.perform_pca()
     
     # Get significant genes
-    significant_results = analysis.get_significant_genes()
+    significant_results = palbo_analysis.get_significant_genes()
     
     # Display results
     print("\nSignificant Gene Summary:")
