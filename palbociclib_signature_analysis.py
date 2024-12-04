@@ -56,7 +56,37 @@ class palbo_signatures:
         plt.title('T score heatmap')
         
         plt.tight_layout()
-        return cross_data
+    
+
+if __name__ == "__main__":
+    # Initialize analysis
+    CDK6_fpath="./input_data//palbo_signature/CCLE_palbo_CDK6.csv"
+    RB1_fpath="./input_data/palbo_signature/CCLE_palbo_RB1.csv" 
+    palbo_sig = palbo_signatures(CDK6_fpath, RB1_fpath)
+
+    # Create visualizations
+    palbo_sig.plot_volcano()
+    palbo_sig.cross_heatmap()
+    plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 def set_presence(gene_set, care_data, seq_data, save_csv=False):
     """Analyze gene set presence in different datasets"""
@@ -127,22 +157,4 @@ class ComplexHeatmap:
         plt.tight_layout()
         return fig
 
-def main():
-    # Read data
-    ccle_cdk6, ccle_rb1, pal_seq_select, cdk4ko_seq_select, cdk6ko_seq_select, crispr_gene_summary = read_and_process_data()
-    
-    # Add mutation status
-    ccle_cdk6 = mutation_status(ccle_cdk6)
-    ccle_rb1 = mutation_status(ccle_rb1)
-    
-    # Create volcano plots
-    plot_volcano(ccle_cdk6, 'CCLE CDK6 Volcano Plot')
-    plot_volcano(ccle_rb1, 'CCLE RB1 Volcano Plot')
-    
-    # Cross dataset analysis
-    cross_data = cross_heatmap(ccle_cdk6, pal_seq_select)
-    
-    return cross_data
 
-if __name__ == "__main__":
-    main()
