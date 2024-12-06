@@ -10,6 +10,8 @@ class palbo_signatures:
     # check funtion for correct corresponding data
         self.CDK6 = pd.read_csv(cdk6_fpath)
         self.RB1 = pd.read_csv(rb1_fpath)
+        self.combo = pd.merge(self.CDK6, self.RB1, on='Partner', how='inner',
+                              suffixes=('_CDK6', '_RB1'))
         self.mutation_status()
     
     def mutation_status(self, pattern=r"^.*Mutation$"):
@@ -40,7 +42,7 @@ class palbo_signatures:
         """Generate heatmap between two signature datasets"""        
         # merge two datasets
         cross_data = pd.merge(self.CDK6, self.RB1, on='Partner', how='inner',
-                              suffixes=('_CDK6', 'RB1'))
+                              suffixes=('_CDK6', '_RB1'))
         
         # Correlation matrix
         # cor_matrix = cross_data[col2draw].corr()
