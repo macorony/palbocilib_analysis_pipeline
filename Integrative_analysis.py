@@ -47,3 +47,17 @@ def geneset_heatmap(gene_set, signature_data, seq_data, save_csv=False):
         # overlap.to_csv(f"./Processed_data_output/{output_name}")
     
     # return overlap
+# 
+if __name__ == "__main__":
+    # Initialize analysis  
+    fpath1="./input_data//palbo_signature/CCLE_palbo_CDK6.csv"
+    fpath2="./input_data/palbo_signature/CCLE_palbo_RB1.csv" 
+    palbo_sig = palbo_signatures(fpath1, fpath2)
+    palbo_seq = palbo_RNAseq("./input_data/palbo_RNAseq/palbociclib_gene_list.txt")
+    
+    geneset_library = build_library
+    pathways2plot = ["Myc Targets V1","G2-M Checkpoint","E2F Targets",
+                     "Epithelial Mesenchymal Transition", "TNF-alpha Signaling via NF-kB",
+                     "Glycolysis"]
+    for each in pathways2plot:
+        geneset_heatmap(geneset_library[each], palbo_sig.combo, palbo_seq.gene_summary)

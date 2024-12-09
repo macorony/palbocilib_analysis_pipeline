@@ -9,7 +9,7 @@ warnings.filterwarnings('ignore')
 class palbo_RNAseq:
     def __init__(self, fpath):
         self._raw_data = pd.read_table(fpath)
-        self.gene_summary = self._raw_data[abs(self._raw_data['log2FoldChange']) >= 0.58][['GeneName', 'log2FoldChange', 'padj']]
+        self.gene_summary = self._raw_data[['GeneName', 'log2FoldChange', 'padj']]
 
     def plot_volcano(self):
         """Create volcano plot"""
