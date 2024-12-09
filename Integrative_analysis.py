@@ -24,7 +24,7 @@ def build_library(fpath="./input_data/Enrichment/MSigDB_Hallmark_2020.txt"):
 
 
 def geneset_heatmap(gene_set, signature_data, seq_data, save_csv=False):
-    """Analyze gene set presence in different datasets"""
+    """Analyze gene set in RNA-seq and drug signature datasets"""
     set_in_signature = signature_data[signature_data['Partner'].isin(gene_set)]
     set_in_seq = seq_data[seq_data['GeneName'].isin(gene_set)]
     
@@ -47,6 +47,7 @@ def geneset_heatmap(gene_set, signature_data, seq_data, save_csv=False):
         # overlap.to_csv(f"./Processed_data_output/{output_name}")
     
     # return overlap
+
 # 
 if __name__ == "__main__":
     # Initialize analysis  
