@@ -14,43 +14,47 @@ logger = logging.getLogger(__name__)
 @dataclass
 class DataPaths:
     """Centralize data paths configuration"""
-    BASE_PATH: Path = Path('../../Public_Data')
-    CLINICAL_PATH: Path = BASE_PATH / 'TCGA_BRCA_clinical_simple/brca_tcga_pan_can_atlas_2018_clinical_data.tsv'
-    RECEPTOR_PATH: Path = BASE_PATH / 'TCGA_BRCA_clinical_oncoLnc/TCGA_BRCA_clinical_receptors.txt'
-    MRNA_BASE: Path = BASE_PATH / 'brca_tcga_subset_tcga'
-    
-class GeneExpressionData:
+    BASE_PATH: Path = Path('./input_data')
+    CLINICAL_PATH: Path = BASE_PATH / 'clinical_features/TCGA_BRCA_clinical_simple/brca_tcga_pan_can_atlas_2018_clinical_data.tsv'
+    RECEPTOR_PATH: Path = BASE_PATH / 'clinical_features/TCGA_BRCA_clinical_oncoLnc/TCGA_BRCA_clinical_receptors.txt'
+    MRNA_BASE: Path = BASE_PATH / 'mRNA_data'
+
+# split the data based molecular and clinical subtype
+
+class TCGA_GeneExpressionData:
     """Handle gene expression data processing and analysis"""
     def __init__(self):
-        self.clinical_data = None
-        self.receptor_data = None
+        self.clinical_feature = None
+        self.receptor_feature = None
         self.gene_sets = {}
         
     def load_clinical_data(self, paths: DataPaths) -> None:
         """Load and process clinical data"""
         try:
-            self.clinical_data = pd.read_table(paths.CLINICAL_PATH, index_col=0)
-            self.receptor_data = pd.read_table(paths.RECEPTOR_PATH, index_col=0)
+            self.clinical_feature = pd.read_table(paths.CLINICAL_PATH, index_col=0)
+            # NaN value as Unidentified 
+            self.clinical_feature.fillna("Uni", inplace=True)
+            self.receptor_feature = pd.read_table(paths.RECEPTOR_PATH, index_col=0)
             self._process_receptor_data()
         except Exception as e:
             logger.error(f"Error loading clinical data: {e}")
             raise
             
     def _process_receptor_data(self) -> None:
-        """Process receptor data into clinical types"""
+        """Process receptor status into clinical types of TNBC, Hormone Receptor(HR) positive and other"""
         conditions = [
-            (self.receptor_data['er_status_by_ihc'].eq('Negative') & 
-             self.receptor_data['pr_status_by_ihc'].eq('Negative') & 
-             self.receptor_data['her2_status_by_ihc'].eq('Negative')),
-            ((self.receptor_data['er_status_by_ihc'].eq('Positive') | 
-              self.receptor_data['pr_status_by_ihc'].eq('Positive')) & 
-             self.receptor_data['her2_status_by_ihc'].eq('Negative'))
+            (self.receptor_feature['er_status_by_ihc'].eq('Negative') & 
+             self.receptor_feature['pr_status_by_ihc'].eq('Negative') & 
+             self.receptor_feature['her2_status_by_ihc'].eq('Negative')),
+            ((self.receptor_feature['er_status_by_ihc'].eq('Positive') | 
+              self.receptor_feature['pr_status_by_ihc'].eq('Positive')) & 
+             self.receptor_feature['her2_status_by_ihc'].eq('Negative'))
         ]
         choices = ['TNBC', 'HR_positive']
-        self.receptor_data['clinical_types'] = np.select(conditions, choices, default='other')
+        self.receptor_feature['clinical_types'] = np.select(conditions, choices, default='other')
     
     @staticmethod
-    def input_cbio(fpath: Union[str, Path], remove_na: bool = True) -> pd.DataFrame:
+    def preprocess_mRNA(fpath: Union[str, Path], remove_na: bool = True) -> pd.DataFrame:
         """Load and process cBioPortal data"""
         try:
             data = pd.read_table(fpath, index_col=1).iloc[:, 1:].T
@@ -73,16 +77,26 @@ class GeneExpressionData:
         
         for name, file_path in gene_sets.items():
             full_path = paths.MRNA_BASE / file_path
-            self.gene_sets[name] = self.input_cbio(full_path)
+            self.gene_sets[name] = self.preprocess_mRNA(full_path)
             
     def split_by_clinical_types(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         """Split data by clinical types"""
         splits = {}
         for ctype in ['TNBC', 'HR_positive', 'other']:
-            mask = self.receptor_data['clinical_types'] == ctype
-            patient_ids = self.receptor_data[mask].index
+            mask = self.receptor_feature['clinical_types'] == ctype
+            patient_ids = self.receptor_feature[mask].index
             splits[ctype] = data.loc[:, data.columns.isin(patient_ids)]
         return splits
+    
+    def split_by_molecular_types(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
+        """Split data by molecular subtypes"""
+        splits = {}
+        for mtype in ['BRCA_LumA', 'BRCA_LumB', 'BRCA_Normal', 'BRCA_Basal', 'Uni']:
+            mask = self.clinical_feature['Subtype'] == mtype
+            patient_ids = self.clinical_feature[mask].index
+            splits[mtype] = data.loc[:, data.columns.isin(patient_ids)]
+        return splits  
+    
     
     def run_ttest_analysis(self, data_split: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         """Perform t-test analysis between TNBC and HR positive samples"""

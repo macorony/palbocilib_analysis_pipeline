@@ -12,6 +12,75 @@ receptor_info = receptor_raw_data %>%
                                     TRUE ~ 'other'))
 
 
+input_cbio = function(fpath, re_na_col=T) {
+  # fpath: file path
+  # re_na_col: remove all NA columns
+  raw_data = read.csv(fpath, sep='\t', header = T, row.names = 2, check.names = F, stringsAsFactors = F)
+  # remove the study id and transpose
+  raw_data = t(raw_data[, -1])
+  colnames(raw_data) = lapply(colnames(raw_data), FUN=sampletopatient)
+  if (re_na_col) {
+    return(remove_na_column(raw_data))
+  } else {
+    return(raw_data)
+  } 
+}
+
+df_split = function(df, group_info, col2split, tosplit=F, order_info=F) {    
+  # df: dataframe to be split  patient id at column and gene symbol at row   
+  # col2split: specifiy the column containing the subtype information
+  # tosplit:to keep the resulting data integral or split into subset
+  # order_info: to rank dataframe
+  df_merge = merge(t(df), group_info[, col2split, drop=F], by=0, all.x=T)
+  df_merge[,col2split] = replace_na(df_merge[,col2split], "unknown")
+  df_merge = df_merge[order(df_merge[, col2split]), ]
+  rownames(df_merge) = df_merge[,1]
+  df_ready = df_merge[, -c(1, ncol(df_merge))]
+  split_info = df_merge[, ncol(df_merge), drop=F]
+  if (tosplit) {
+    df_splitted = split(df_ready, split_info)
+    return(df_splitted)
+  } else { 
+    return(list(results=df_ready, split_info=split_info))
+    }
+  }
+clinical_subtypes = function(mRNA_data, clinical_info=receptor_info){
+  mRNA_TNBC = mRNA_data[, colnames(mRNA_data) %in% rownames(clinical_info[clinical_info$clinical_types == 'TNBC',])]
+  mRNA_HR = mRNA_data[, colnames(mRNA_data) %in% rownames(clinical_info[clinical_info$clinical_types == 'HR+',])]
+  mRNA_other = mRNA_data[, colnames(mRNA_data) %in% rownames(clinical_info[clinical_info$clinical_types == 'other',])]
+  col_map1 = colorRamp2(c(-4, 0, 4), c( "#123456", "white", "#FF0000")   )
+  ha_top1 = HeatmapAnnotation(TNBC=rep('a', dim(mRNA_TNBC)[2]),
+                              col = list(TNBC= c('a'="orange")), 
+                              annotation_name_side = "left", show_legend = F)
+  ht1 = Heatmap(mRNA_TNBC, col = col_map1, top_annotation = ha_top1,
+                show_column_names = F, show_row_dend = F, show_column_dend = F,
+                cluster_columns = F)
+  ha2 = HeatmapAnnotation(HR_positive=rep("b", dim(mRNA_HR)[2]),
+                          col = list(HR_positive=c("b" = "cyan")), 
+                          show_annotation_name = F,
+                          show_legend = F)
+  ht2 = Heatmap(mRNA_HR, col= col_map1, top_annotation = ha2,
+                show_column_names = F, show_row_dend = F, show_column_dend = F, 
+                cluster_columns = F, 
+                show_heatmap_legend = F)
+  ha3 = HeatmapAnnotation(other=rep("c", dim(mRNA_other)[2]),
+                          col =list(other=c("c" = "black")), 
+                          annotation_name_side = 'right', show_legend = F)
+  ht3 = Heatmap(mRNA_other, col= col_map1, top_annotation = ha3,
+                show_column_names = F, show_row_dend = F, show_column_dend = F, 
+                cluster_columns = F, 
+                show_heatmap_legend = F)
+  
+  return(ht1 + ht2 + ht3)
+}
+
+
+ttest_subtypes <- function(mRNA_data, clinical_info=receptor_info){
+  mRNA_TNBC = mRNA_data[, colnames(mRNA_data) %in% rownames(clinical_info[clinical_info$clinical_types == 'TNBC',])]
+  mRNA_HR = mRNA_data[, colnames(mRNA_data) %in% rownames(clinical_info[clinical_info$clinical_types == 'HR+',])]
+  return(ttest_by_row(mRNA_TNBC, mRNA_HR, col_result=c("tValue", "pValue", "mean of TNBC", "mean of HR+")))
+}
+
 MYC_V1_mRNA = input_cbio("../../Public_Data/brca_tcga_subset_tcga/MYC_V1/mRNA expression z-scores relative to diploid samples (RNA Seq V2 RSEM).txt")
 G2M_mRNA = input_cbio("../../Public_Data/brca_tcga_subset_tcga/G2M/mRNA expression z-scores relative to diploid samples (RNA Seq V2 RSEM).txt")
 E2F_mRNA = input_cbio("../../Public_Data/brca_tcga_subset_tcga/E2F/mRNA expression z-scores relative to diploid samples (RNA Seq V2 RSEM).txt")
