@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 class DataPaths:
     """Centralize data paths configuration"""
     BASE_PATH: Path = Path('./input_data')
-    CLINICAL_PATH: Path = BASE_PATH / 'clinical_features/TCGA_BRCA_clinical_simple/brca_tcga_pan_can_atlas_2018_clinical_data.tsv'
-    RECEPTOR_PATH: Path = BASE_PATH / 'clinical_features/TCGA_BRCA_clinical_oncoLnc/TCGA_BRCA_clinical_receptors.txt'
+    CLINICAL_PATH: Path = BASE_PATH / 'clinical_features/brca_tcga_pan_can_atlas_2018_clinical_data.tsv'
+    RECEPTOR_PATH: Path = BASE_PATH / 'clinical_features/TCGA_BRCA_clinical_receptors.txt'
     MRNA_BASE: Path = BASE_PATH / 'mRNA_data'
 
 # split the data based molecular and clinical subtype
@@ -118,6 +118,31 @@ class TCGA_GeneExpressionData:
             splits[category] = data.loc[:, data.columns.isin(patient_ids)]
         
         return splits
+    
+    def run_one_way_anova(self, data: pd.DataFrame, groups: pd.Series):
+        """
+        Perform one-way ANOVA for each gene across groups
+        
+        Args:
+            data: Gene expression matrix (genes × samples)
+            groups: Series containing group labels
+        """
+        results = []
+        for gene in data.index:
+            # Create lists of expression values for each group
+            group_values = [data.loc[gene, groups == group] for group in groups.unique()]
+            
+            # Run ANOVA
+            f_stat, p_val = stats.f_oneway(*group_values)
+            
+            # Add to results
+            results.append({
+                'gene': gene,
+                'F_statistic': f_stat,
+                'p_value': p_val
+            })
+        
+        return pd.DataFrame(results).set_index('gene')
    
     
     def run_ttest_analysis(self, data_split: Dict[str, pd.DataFrame]) -> pd.DataFrame:
