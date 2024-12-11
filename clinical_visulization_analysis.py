@@ -78,7 +78,22 @@ class TCGA_GeneExpressionData:
         for name, file_path in gene_sets.items():
             full_path = paths.MRNA_BASE / file_path
             self.gene_sets[name] = self.preprocess_mRNA(full_path)
-            
+
+    # merge two methods into one 
+    def split_by_types(self, data: pd.DataFrame, by_type=["clinical", "molecular"]) -> Dict[str, pd.DataFrame]:
+        splits = {}
+        if by_type == "clinical":
+            for ctype in ['TNBC', 'HR_positive', 'other']:
+                mask = self.receptor_feature['clinical_types'] == ctype
+                patient_ids = self.receptor_feature[mask].index
+                splits[ctype] = data.loc[:, data.columns.isin(patient_ids)]
+        elif by_type == "molecular":
+            for mtype in ['BRCA_LumA', 'BRCA_LumB', 'BRCA_Normal', 'BRCA_Basal', 'Uni']:
+                mask = self.clinical_feature['Subtype'] == mtype
+                patient_ids = self.clinical_feature[mask].index
+                splits[mtype] = data.loc[:, data.columns.isin(patient_ids)]
+        return splits  
+    
     def split_by_clinical_types(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
         """Split data by clinical types"""
         splits = {}
