@@ -80,38 +80,45 @@ class TCGA_GeneExpressionData:
             self.gene_sets[name] = self.preprocess_mRNA(full_path)
 
     # merge two methods into one 
-    def split_by_types(self, data: pd.DataFrame, by_type=["clinical", "molecular"]) -> Dict[str, pd.DataFrame]:
-        splits = {}
-        if by_type == "clinical":
-            for ctype in ['TNBC', 'HR_positive', 'other']:
-                mask = self.receptor_feature['clinical_types'] == ctype
-                patient_ids = self.receptor_feature[mask].index
-                splits[ctype] = data.loc[:, data.columns.isin(patient_ids)]
-        elif by_type == "molecular":
-            for mtype in ['BRCA_LumA', 'BRCA_LumB', 'BRCA_Normal', 'BRCA_Basal', 'Uni']:
-                mask = self.clinical_feature['Subtype'] == mtype
-                patient_ids = self.clinical_feature[mask].index
-                splits[mtype] = data.loc[:, data.columns.isin(patient_ids)]
-        return splits  
+    def split_by_types(self, data: pd.DataFrame, by_type: Union[str, List[str]] = "clinical") -> Dict[str, pd.DataFrame]:
+        """
+        Split DataFrame by clinical or molecular subtypes.
+        
+        Args:
+            data: DataFrame to split
+            by_type: "clinical" for TNBC/HR classification or "molecular" for BRCA subtypes
+            
+        Returns:
+            Dictionary of split DataFrames by subtype
+        """
+        TYPE_MAPPINGS = {
+            "clinical": {
+                "feature": "receptor_feature",
+                "column": "clinical_types",
+                "categories": ['TNBC', 'HR_positive', 'other']
+            },
+            "molecular": {
+                "feature": "clinical_feature",
+                "column": "Subtype",
+                "categories": ['BRCA_LumA', 'BRCA_LumB', 'BRCA_Normal', 'BRCA_Basal', 'Uni']
+            }
+        }
+        
+        if by_type not in TYPE_MAPPINGS:
+            raise ValueError(f"by_type must be one of {list(TYPE_MAPPINGS.keys())}")
+        
+        type_info = TYPE_MAPPINGS[by_type]
+        feature_data = getattr(self, type_info["feature"])
+
     
-    def split_by_clinical_types(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
-        """Split data by clinical types"""
         splits = {}
-        for ctype in ['TNBC', 'HR_positive', 'other']:
-            mask = self.receptor_feature['clinical_types'] == ctype
-            patient_ids = self.receptor_feature[mask].index
-            splits[ctype] = data.loc[:, data.columns.isin(patient_ids)]
+        for category in type_info["categories"]:
+            mask = feature_data[type_info["column"]] == category
+            patient_ids = feature_data[mask].index
+            splits[category] = data.loc[:, data.columns.isin(patient_ids)]
+        
         return splits
-    
-    def split_by_molecular_types(self, data: pd.DataFrame) -> Dict[str, pd.DataFrame]:
-        """Split data by molecular subtypes"""
-        splits = {}
-        for mtype in ['BRCA_LumA', 'BRCA_LumB', 'BRCA_Normal', 'BRCA_Basal', 'Uni']:
-            mask = self.clinical_feature['Subtype'] == mtype
-            patient_ids = self.clinical_feature[mask].index
-            splits[mtype] = data.loc[:, data.columns.isin(patient_ids)]
-        return splits  
-    
+   
     
     def run_ttest_analysis(self, data_split: Dict[str, pd.DataFrame]) -> pd.DataFrame:
         """Perform t-test analysis between TNBC and HR positive samples"""
