@@ -119,86 +119,130 @@ class TCGA_GeneExpressionData:
         
         return splits
     
-    def run_one_way_anova(self, data: pd.DataFrame, groups: pd.Series):
+    def run_one_way_anova(self, data: pd.DataFrame, by_type: str = "clinical"):
         """
         Perform one-way ANOVA for each gene across groups
         
         Args:
             data: Gene expression matrix (genes × samples)
-            groups: Series containing group labels
+            by_type: Type of grouping to use ("clinical" or molecular)
+
+        Returns:
+            DataFrame with ANOVA results including F-statistic, p-value, and group means
         """
+        if by_type == "clinical":
+            groups = self.receptor_feature["clinical_types"]
+        elif by_type == "molecular":
+            groups = self.clinical_feature["Subtype"]
+        else:
+            raise ValueError("by_type must be either 'clinical' or 'molecular'")
+        
+        common_samples = groups.index.intersection(data.columns)
+        groups = groups[common_samples]
+        data = data[common_samples]
         results = []
         for gene in data.index:
             # Create lists of expression values for each group
-            group_values = [data.loc[gene, groups == group] for group in groups.unique()]
+            group_data = {group: data.loc[gene, groups == group] for group in groups.unique()}
+            # Calculate group means
+            group_means = {f"mean_{group}": values.mean() 
+                          for group, values in group_data.items()}
             
             # Run ANOVA
-            f_stat, p_val = stats.f_oneway(*group_values)
+            f_stat, p_val = stats.f_oneway(*group_data.values())
             
             # Add to results
             results.append({
                 'gene': gene,
                 'F_statistic': f_stat,
-                'p_value': p_val
+                'p_value': p_val,
+                **group_means  # Include all group means in results
             })
+        results_df = pd.DataFrame(results).set_index('gene')
+        results_df = results_df.sort_values('p_value')
+        # Add multiple testing correction
+        results_df['adjusted_p_value'] = stats.false_discovery_control(results_df['p_value'])
         
-        return pd.DataFrame(results).set_index('gene')
-   
+        return results_df
     
-    def run_ttest_analysis(self, data_split: Dict[str, pd.DataFrame]) -> pd.DataFrame:
-        """Perform t-test analysis between TNBC and HR positive samples"""
-        tnbc_data = data_split['TNBC'].T
-        hr_data = data_split['HR_positive'].T
+    def analyze_all_genesets_anova(self, by_type: str = "clinical", output_dir: str = "./Processed_data_output") -> Dict[str, pd.DataFrame]:
+        """
+        Run ANOVA analysis for all gene sets and combine results.
         
-        results = []
-        for gene in tnbc_data.columns:
-            t_stat, p_val = stats.ttest_ind(tnbc_data[gene], hr_data[gene])
-            results.append({
-                'gene': gene,
-                'tValue': t_stat,
-                'pValue': p_val,
-                'mean_of_TNBC': tnbc_data[gene].mean(),
-                'mean_of_HR_positive': hr_data[gene].mean()
-            })
-        
-        return pd.DataFrame(results).set_index('gene')
-    
-    def generate_heatmap(self, data_split: Dict[str, pd.DataFrame], title: str) -> None:
-        """Generate heatmap visualization"""
-        plt.figure(figsize=(15, 10))
-        
-        # Combine data with clinical types
-        combined_data = pd.concat([df for df in data_split.values()], axis=1)
-        clinical_types = pd.Series('other', index=combined_data.columns)
-        for ctype, df in data_split.items():
-            clinical_types[df.columns] = ctype
+        Args:
+            by_type: Type of grouping to use ("clinical" or "molecular")
+            output_dir: Directory to save results
             
-        # Create heatmap
-        sns.clustermap(
-            combined_data,
-            col_colors=pd.get_dummies(clinical_types).reindex(combined_data.columns),
-            cmap='RdBu_r',
-            center=0,
-            figsize=(15, 10),
-            xticklabels=False
+        Returns:
+            Dictionary containing ANOVA results for each gene set
+        """
+        if not self.gene_sets:
+            raise ValueError("Gene sets not loaded. Please call load_gene_sets() first.")
+        
+        # Create output directory if it doesn't exist
+        Path(output_dir).mkdir(parents=True, exist_ok=True)
+        
+        # Store results for each gene set
+        all_results = {}
+        
+        # Combined significant results across gene sets
+        significant_genes = pd.DataFrame()
+        
+        for name, data in self.gene_sets.items():
+            logger.info(f"Running ANOVA analysis for {name} gene set")
+            
+            # Run ANOVA
+            anova_results = self.run_one_way_anova(data, by_type)
+            all_results[name] = anova_results
+            
+            # Extract significant genes (adjusted p-value < 0.05)
+            sig_genes = anova_results[anova_results['adjusted_p_value'] < 0.05].copy()
+            sig_genes['gene_set'] = name
+            significant_genes = pd.concat([significant_genes, sig_genes])
+            
+            # Save individual results
+            output_file = Path(output_dir) / f"{name}_anova_{by_type}.csv"
+            anova_results.to_csv(output_file)
+            
+        # Save combined significant results
+        significant_genes.sort_values('adjusted_p_value').to_csv(
+            Path(output_dir) / f"all_significant_genes_anova_{by_type}.csv"
         )
-        plt.title(title)
-        plt.show()
+        
+        # Generate summary statistics
+        summary_stats = pd.DataFrame({
+            'gene_set': list(all_results.keys()),
+            'total_genes': [len(df) for df in all_results.values()],
+            'significant_genes': [len(df[df['adjusted_p_value'] < 0.05]) for df in all_results.values()],
+            'min_p_value': [df['p_value'].min() for df in all_results.values()],
+            'median_p_value': [df['p_value'].median() for df in all_results.values()]
+        })
+        
+        # Save summary statistics
+        summary_stats.to_csv(Path(output_dir) / f"anova_summary_stats_{by_type}.csv", index=False)
+        
+        return all_results
+    
+    
 
 def main():
     paths = DataPaths()
-    analysis = GeneExpressionData()
+    analysis = TCGA_GeneExpressionData()
     
     # Load data
     analysis.load_clinical_data(paths)
     analysis.load_gene_sets(paths)
     
-    # Process each gene set
+    # Run ANOVA analysis for all gene sets
+    clinical_results = analysis.analyze_all_genesets_anova(by_type="clinical")
+    molecular_results = analysis.analyze_all_genesets_anova(by_type="molecular")
+    
+    # Process each gene set individually as before
     for name, data in analysis.gene_sets.items():
         logger.info(f"Processing {name} gene set")
         
         # Split data by clinical types
-        splits = analysis.split_by_clinical_types(data)
+        splits = analysis.split_by_types(data, "clinical")
         
         # Run t-test analysis
         ttest_results = analysis.run_ttest_analysis(splits)
@@ -206,7 +250,7 @@ def main():
         # Generate visualization
         analysis.generate_heatmap(splits, f"{name} Expression Patterns")
         
-        # Save results
+        # Save t-test results
         ttest_results.to_csv(f"./Processed_data_output/{name}_ttest.csv")
 
 if __name__ == "__main__":
