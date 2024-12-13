@@ -222,6 +222,69 @@ class TCGA_GeneExpressionData:
         summary_stats.to_csv(Path(output_dir) / f"anova_summary_stats_{by_type}.csv", index=False)
         
         return all_results
+    def generate_heatmap(self, splits: Dict[str, pd.DataFrame], title: str, 
+                        figsize: Tuple[int, int] = (12, 8),
+                        cmap: str = "RdBu_r",
+                        save_path: Optional[str] = "./output") -> None:
+        """
+        Generate and save a heatmap visualization of gene expression patterns.
+        
+        Args:
+            splits: Dictionary of split DataFrames by subtype
+            title: Title for the heatmap
+            figsize: Figure size as (width, height)
+            cmap: Color map for the heatmap
+            save_path: Directory to save the generated figure
+        """
+        # Create figure
+        plt.figure(figsize=figsize)
+        
+        # Combine all data and add subtype labels
+        combined_data = pd.DataFrame()
+        subtype_labels = []
+        
+        for subtype, data in splits.items():
+            combined_data = pd.concat([combined_data, data], axis=1)
+            subtype_labels.extend([subtype] * data.shape[1])
+            
+        # Create color mapping for subtypes
+        unique_subtypes = list(splits.keys())
+        colors = sns.color_palette("husl", len(unique_subtypes))
+        subtype_colors = {subtype: color for subtype, color in zip(unique_subtypes, colors)}
+        color_row = [subtype_colors[label] for label in subtype_labels]
+        
+        # Generate heatmap
+        g = sns.clustermap(combined_data,
+                          cmap=cmap,
+                          col_colors=[color_row],
+                          xticklabels=False,
+                          yticklabels=True,
+                          figsize=figsize,
+                          row_cluster=True,
+                          col_cluster=False,
+                          z_score=0, 
+                          vmin=-1.5,
+                          vmax=1.5)  # Standardize rows
+        
+        # Add title
+        g.figure.suptitle(title, y=1.02)
+        
+        # Add legend
+        legend_elements = [plt.Rectangle((0,0),1,1, facecolor=color, label=subtype)
+                         for subtype, color in subtype_colors.items()]
+        g.ax_heatmap.legend(handles=legend_elements,
+                           title="Subtypes",
+                           bbox_to_anchor=(1.3, 1),
+                           loc='upper right')
+        
+        # Save figure if path provided
+        if save_path:
+            Path(save_path).mkdir(parents=True, exist_ok=True)
+            plt.savefig(f"{save_path}/{title.replace(' ', '_')}.png",
+                       bbox_inches='tight',
+                       dpi=300)
+            
+        plt.close()
     
     
 
