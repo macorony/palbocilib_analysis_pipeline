@@ -23,3 +23,34 @@ usage() {
     echo "  -h|--help             Print this help message"
     exit 1
 }
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -t|--threads)
+            THREADS="$2"
+            shift 2
+            ;;
+        -a|--adapter)
+            ADAPTER="$2"
+            shift 2
+            ;;
+        -l|--min-length)
+            MIN_LENGTH="$2"
+            shift 2
+            ;;
+        -q|--min-quality)
+            MIN_QUALITY="$2"
+            shift 2
+            ;;
+        -h|--help)
+            usage
+            ;;
+        *)
+            INPUT_DIR="$1"
+            OUTPUT_DIR="$2"
+            GENOME_INDEX="$3"
+            shift 3
+            ;;
+    esac
+done
