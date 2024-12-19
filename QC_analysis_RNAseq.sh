@@ -54,3 +54,8 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+if [[ -z "${INPUT_DIR:-}" ]] || [[ -z "${OUTPUT_DIR:-}" ]] || [[ -z "${GENOME_INDEX:-}" ]]; then
+    echo "Error: Missing required arguments"
+    usage
+fi
