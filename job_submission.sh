@@ -19,17 +19,25 @@ module load salmon/1.4.0
 module load python/3.8.10
 module load multiqc/1.9
 
-# Set working directory
-cd $SLURM_SUBMIT_DIR
-
 # Create project directory structure in scratch
-PROJECT_DIR=$SCRATCH/RNA_seq_project
-mkdir -p $PROJECT_DIR
+PROJECT_DIR=/home/gyan/projects/def-lebrun/gyan/RNAseq_CDK4_6
 
-# Run the pipeline
-./RNA_seq_pipeline.sh \
-    -i $PROJECT_DIR/raw_data \
-    -o $PROJECT_DIR/results \
-    -x $PROJECT_DIR/salmon_index \
-    -t $PROJECT_DIR/reference/transcriptome.fa \
-    -p $SLURM_CPUS_PER_TASK 
+# Set working directory
+RNA_SEQ_SCRIPT= $PROJECT_DIR/RNAseq_quantification.sh
+
+INPUT_DIR=$PROJECT_DIR/raw_data
+OUTPUT_DIR=$PROJECT_DIR/output
+SALMON_INDEX=$PROJECT_DIR/salmon_index
+TRANSCRIPTOME=$PROJECT_DIR/transcriptome"
+
+
+
+CMD="$RNA_SEQ_SCRIPT \
+  -i '$INPUT__DIR' \
+  -o '$OUTPUT_DIR' \
+  -x '$SALMON_INDEX' \
+  -t '$TRANSCRIPTOME' \
+  -p '$SLURM_CPUS_PER_TASK' \
+  --libtype 'IU'" 
+
+eval "$CMD"
