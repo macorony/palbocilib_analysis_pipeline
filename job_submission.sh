@@ -3,8 +3,8 @@
 #SBATCH --time=24:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
-#SBATCH --cpus-per-task=32
-#SBATCH --mem=124G
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=32G
 #SBATCH --mail-user=gang.yan@mail.mcgill.ca
 #SBATCH --mail-type=ALL
 #SBATCH --job-name=RNA_seq_quantification
